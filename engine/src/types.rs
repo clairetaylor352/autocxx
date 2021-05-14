@@ -233,8 +233,21 @@ impl Display for QualifiedName {
 /// wrapper for a CxxCompatibleIdent which is used in any context
 /// where code will be output as part of the `#[cxx::bridge]` mod.
 pub fn validate_ident_ok_for_cxx(id: &str) -> Result<(), ConvertError> {
+    validate_ident_ok_for_rust(id)?;
     if id.contains("__") {
         Err(ConvertError::TooManyUnderscores)
+    } else {
+        Ok(())
+    }
+}
+
+/// Names which are acceptable in C++ but not Rust.
+/// This is not currently an exhaustive list.
+static RESERVED_NAMES: &[&str] = &["move", "ref", "async", "await"];
+
+pub fn validate_ident_ok_for_rust(id: &str) -> Result<(), ConvertError> {
+    if RESERVED_NAMES.contains(&id) {
+        Err(ConvertError::ReservedName)
     } else {
         Ok(())
     }

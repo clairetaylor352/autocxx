@@ -30,7 +30,7 @@ pub(crate) use non_pod_struct::make_non_pod;
 use proc_macro2::TokenStream;
 use syn::{parse_quote, ForeignItem, Ident, Item, ItemForeignMod, ItemMod};
 
-use crate::types::{make_ident, Namespace, QualifiedName};
+use crate::types::{make_ident, validate_ident_ok_for_rust, Namespace, QualifiedName};
 use impl_item_creator::create_impl_items;
 
 use self::{
@@ -493,24 +493,31 @@ impl<'a> RsCodeGenerator<'a> {
     fn generate_error_entry(err: ConvertError, ctx: ErrorContext) -> RsCodegenResult {
         let err = format!("autocxx bindings couldn't be generated: {}", err);
         let (impl_entry, materialization) = match ctx {
-            ErrorContext::Item(id) => (
-                None,
-                Use::Custom(Box::new(parse_quote! {
-                    #[doc = #err]
-                    pub struct #id;
-                })),
-            ),
-            ErrorContext::Method { self_ty, method } => (
-                Some(Box::new(ImplBlockDetails {
-                    item: parse_quote! {
+            ErrorContext::Item(id) => {
+                let id = Self::make_error_safe_ident(id);
+                (
+                    None,
+                    Use::Custom(Box::new(parse_quote! {
                         #[doc = #err]
-                        fn #method(_uhoh: autocxx::BindingGenerationFailure) {
-                        }
-                    },
-                    ty: self_ty,
-                })),
-                Use::Unused,
-            ),
+                        pub struct #id;
+                    })),
+                )
+            }
+            ErrorContext::Method { self_ty, method } => {
+                let self_ty = Self::make_error_safe_ident(self_ty);
+                let method = Self::make_error_safe_ident(method);
+                (
+                    Some(Box::new(ImplBlockDetails {
+                        item: parse_quote! {
+                            #[doc = #err]
+                            fn #method(_uhoh: autocxx::BindingGenerationFailure) {
+                            }
+                        },
+                        ty: self_ty,
+                    })),
+                    Use::Unused,
+                )
+            }
         };
         RsCodegenResult {
             global_items: Vec::new(),
@@ -519,6 +526,13 @@ impl<'a> RsCodeGenerator<'a> {
             extern_c_mod_item: None,
             bindgen_mod_item: None,
             materialization,
+        }
+    }
+
+    fn make_error_safe_ident(id: Ident) -> Ident {
+        match validate_ident_ok_for_rust(&id.to_string()) {
+            Ok(..) => id,
+            Err(..) => make_ident(format!("{}_autocxx_suffix", id.to_string())),
         }
     }
 

@@ -44,6 +44,7 @@ pub enum ConvertError {
     Blocked(QualifiedName),
     UnusedTemplateParam,
     TooManyUnderscores,
+    ReservedName,
     UnknownDependentType,
     IgnoredDependent,
     MoveConstructorUnsupported,
@@ -86,6 +87,7 @@ impl Display for ConvertError {
             ConvertError::UnknownDependentType => write!(f, "This item relies on a type not known to autocxx.")?,
             ConvertError::IgnoredDependent => write!(f, "This item depends on some other type which autocxx could not generate.")?,
             ConvertError::MoveConstructorUnsupported => write!(f, "This is a move constructor, for which we currently cannot generate bindings.")?,
+            ConvertError::ReservedName => write!(f, "This name is reserved in Rust.")?,
         }
         Ok(())
     }
